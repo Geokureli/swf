@@ -14,6 +14,7 @@ import #if (haxe_ver >= 4.2) Std.isOfType #else Std.is as isOfType #end;
 @:fileXml('tags="haxe,release"')
 @:noDebug
 #end
+@:access(openfl.display.Sprite)
 class SpriteSymbol extends SWFSymbol
 {
 	public var baseClassName:String;
@@ -29,34 +30,30 @@ class SpriteSymbol extends SWFSymbol
 		frames = new Array<Frame>();
 	}
 
-	private function __spriteConstructor(sprite:Sprite):Void
-	{
-		if (!isOfType(sprite, MovieClip))
-			throw "expected movieclip";
-		
-		__movieClipConstructor(cast sprite);
-	}
-
-	private function __movieClipConstructor(movieClip:MovieClip):Void
+	private function __constructor(sprite:Sprite):Void
 	{
 		var timeline = new SymbolTimeline(swf, this);
-		#if flash
-		@:privateAccess cast(movieClip, flash.display.MovieClip.MovieClip2).attachTimeline(timeline);
-		#else
-		movieClip.attachTimeline(timeline);
-		#end
-		movieClip.scale9Grid = scale9Grid;
+		if (#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (sprite, MovieClip))
+		{
+			var movieClip:MovieClip = cast sprite;
+			#if flash
+			@:privateAccess cast(movieClip, flash.display.MovieClip.MovieClip2).attachTimeline(timeline);
+			#else
+			movieClip.attachTimeline(timeline);
+			#end
+			movieClip.scale9Grid = scale9Grid;
+		}
+		else
+		{
+			sprite.scale9Grid = scale9Grid;
+			timeline.initializeSprite(sprite);
+		}
 	}
 
-	private inline function __setConstructor()
+	private override function __createObject(swf:SWFLite):Sprite
 	{
 		#if (!macro && !flash)
-			@:privateAccess
-			#if (openfl <= "9.1.0")
-			MovieClip.__constructor = __movieClipConstructor;
-			#else
-			Sprite.__constructor = __spriteConstructor;
-			#end
+		Sprite.__constructor = __constructor;
 		#end
 	}
 
@@ -101,34 +98,36 @@ class SpriteSymbol extends SWFSymbol
 			}
 		}
 
-		var movieClip:MovieClip = null;
+		var sprite:Sprite = null;
 
 		if (symbolType != null)
 		{
-			movieClip = Type.createInstance(symbolType, []);
+			sprite = Type.createInstance(symbolType, []);
 		}
 		else
 		{
 			#if flash
-			movieClip = new flash.display.MovieClip.MovieClip2();
+			sprite = new flash.display.MovieClip.MovieClip2();
 			#else
-			movieClip = new MovieClip();
+			sprite = new MovieClip();
 			#end
 		}
 
 		#if flash
-		if (!isOfType(movieClip, flash.display.MovieClip.MovieClip2))
+		if (!#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (sprite, flash.display.MovieClip.MovieClip2))
 		{
-			movieClip.scale9Grid = scale9Grid;
+			sprite.scale9Grid = scale9Grid;
 		}
 		#end
 
-		return movieClip;
+		return sprite;
 	}
 
 	private override function __init(swf:SWFLite):Void
 	{
-		__setConstructor();
+		#if (!macro && !flash)
+		Sprite.__constructor = __constructor;
+		#end
 		this.swf = swf;
 	}
 
